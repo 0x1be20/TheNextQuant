@@ -22,7 +22,7 @@ setup(
     ],
     install_requires=[
         "aiohttp==3.2.1",
-        "aioamqp==0.13.0",
+        "aioamqp==0.15.0",
         "motor==2.0.0"
     ],
 )
