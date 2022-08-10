@@ -140,7 +140,7 @@ class BinanceFutureRestAPI:
             success: Success results, otherwise it's None.
             error: Error information, otherwise it's None.
         """
-        uri = "/fapi/v1/account"
+        uri = "/fapi/v2/account"
         ts = tools.get_cur_timestamp_ms()
         params = {
             "timestamp": str(ts)
