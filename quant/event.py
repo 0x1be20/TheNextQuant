@@ -9,6 +9,7 @@ Email:  huangtao@ifclover.com
 """
 
 import json
+from time import time
 import zlib
 import asyncio
 
@@ -143,7 +144,7 @@ class EventKline(Event):
     """
 
     def __init__(self, platform=None, symbol=None, open=None, high=None, low=None, close=None, volume=None,
-                 timestamp=None, kline_type=None):
+                 timestamp=None, kline_type=None,_eventtime=None):
         """Initialize."""
         if kline_type == const.MARKET_TYPE_KLINE:
             name = "EVENT_KLINE"
@@ -170,7 +171,8 @@ class EventKline(Event):
             "close": close,
             "volume": volume,
             "timestamp": timestamp,
-            "kline_type": kline_type
+            "kline_type": kline_type,
+            "_eventtime": _eventtime
         }
         super(EventKline, self).__init__(name, exchange, queue, routing_key, data=data)
 
@@ -194,7 +196,7 @@ class EventOrderbook(Event):
         Subscriber: Any servers.
     """
 
-    def __init__(self, platform=None, symbol=None, asks=None, bids=None, timestamp=None):
+    def __init__(self, platform=None, symbol=None, asks=None, bids=None, timestamp=None,_eventtime=None):
         """Initialize."""
         name = "EVENT_ORDERBOOK"
         exchange = "Orderbook"
@@ -207,7 +209,8 @@ class EventOrderbook(Event):
             "symbol": symbol,
             "asks": asks,
             "bids": bids,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "_eventtime": _eventtime
         }
         super(EventOrderbook, self).__init__(name, exchange, queue, routing_key, data=data)
 
@@ -232,7 +235,7 @@ class EventTrade(Event):
         Subscriber: Any servers.
     """
 
-    def __init__(self, platform=None, symbol=None, action=None, price=None, quantity=None, timestamp=None):
+    def __init__(self, platform=None, symbol=None, action=None, price=None, quantity=None, timestamp=None, _eventtime=None):
         """ 初始化
         """
         name = "EVENT_TRADE"
@@ -247,7 +250,8 @@ class EventTrade(Event):
             "action": action,
             "price": price,
             "quantity": quantity,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "_eventtime": _eventtime
         }
         super(EventTrade, self).__init__(name, exchange, queue, routing_key, data=data)
 
@@ -271,7 +275,7 @@ class EventAsset(Event):
         Subscriber: Any servers.
     """
 
-    def __init__(self, platform=None, account=None, assets=None, timestamp=None, update=False):
+    def __init__(self, platform=None, account=None, assets=None, timestamp=None, update=False, _eventtime=None):
         """Initialize."""
         name = "EVENT_ASSET"
         exchange = "Asset"
@@ -284,7 +288,8 @@ class EventAsset(Event):
             "account": account,
             "assets": assets,
             "timestamp": timestamp,
-            "update": update
+            "update": update,
+            "_eventtime":_eventtime
         }
         super(EventAsset, self).__init__(name, exchange, queue, routing_key, data=data)
 

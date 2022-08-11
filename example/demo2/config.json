@@ -1,0 +1,22 @@
+{
+    "RABBITMQ": {
+        "host": "127.0.0.1",
+        "port": 5672,
+        "username": "guest",
+        "password": "guest"
+    },
+    "LOG":{
+        "level":"INFO"
+    },
+    "PROXY": "http://127.0.0.1:8001",
+    "ACCOUNTS": [
+        {
+            "platform": "binance_future",
+            "account": "",
+            "access_key": "",
+            "secret_key": ""
+        }
+    ],
+    "strategy": "my_test_strategy",
+    "symbol": "BTCUSDT"
+}

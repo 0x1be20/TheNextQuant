@@ -25,13 +25,14 @@ class Orderbook:
         timestamp: Update time, millisecond.
     """
 
-    def __init__(self, platform=None, symbol=None, asks=None, bids=None, timestamp=None):
+    def __init__(self, platform=None, symbol=None, asks=None, bids=None, timestamp=None,_eventtime=None):
         """ Initialize. """
         self.platform = platform
         self.symbol = symbol
         self.asks = asks
         self.bids = bids
         self.timestamp = timestamp
+        self._eventtime = _eventtime
 
     @property
     def data(self):
@@ -40,7 +41,8 @@ class Orderbook:
             "symbol": self.symbol,
             "asks": self.asks,
             "bids": self.bids,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
+            "_eventtime": self._eventtime
         }
         return d
 
@@ -64,7 +66,7 @@ class Trade:
         timestamp: Update time, millisecond.
     """
 
-    def __init__(self, platform=None, symbol=None, action=None, price=None, quantity=None, timestamp=None):
+    def __init__(self, platform=None, symbol=None, action=None, price=None, quantity=None, timestamp=None,_eventtime=None):
         """ Initialize. """
         self.platform = platform
         self.symbol = symbol
@@ -72,6 +74,7 @@ class Trade:
         self.price = price
         self.quantity = quantity
         self.timestamp = timestamp
+        self._eventtime = _eventtime
 
     @property
     def data(self):
@@ -81,7 +84,8 @@ class Trade:
             "action": self.action,
             "price": self.price,
             "quantity": self.quantity,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
+            "_eventtime": self._eventtime
         }
         return d
 
@@ -109,7 +113,7 @@ class Kline:
     """
 
     def __init__(self, platform=None, symbol=None, open=None, high=None, low=None, close=None, volume=None,
-                 timestamp=None, kline_type=None):
+                 timestamp=None, kline_type=None, _eventtime=None):
         """ Initialize. """
         self.platform = platform
         self.symbol = symbol
@@ -120,6 +124,7 @@ class Kline:
         self.volume = volume
         self.timestamp = timestamp
         self.kline_type = kline_type
+        self._eventtime = _eventtime
 
     @property
     def data(self):
@@ -132,7 +137,8 @@ class Kline:
             "close": self.close,
             "volume": self.volume,
             "timestamp": self.timestamp,
-            "kline_type": self.kline_type
+            "kline_type": self.kline_type,
+            "_eventtime": self._eventtime
         }
         return d
 
