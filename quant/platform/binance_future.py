@@ -163,7 +163,7 @@ class BinanceFutureRestAPI:
         success, error = await self.request("GET", uri, params, auth=True)
         return success, error
 
-    async def create_order(self, action, symbol, price, quantity, client_order_id=None):
+    async def create_order(self, action, symbol, price, quantity,type=ORDER_TYPE_LIMIT,client_order_id=None):
         """ Create an order.
         Args:
             action: Trade direction, BUY or SELL.
@@ -180,7 +180,7 @@ class BinanceFutureRestAPI:
         data = {
             "symbol": symbol,
             "side": action,
-            "type": "LIMIT",
+            "type": type,
             "timeInForce": "GTC",
             "quantity": quantity,
             "price": price,
@@ -263,7 +263,7 @@ class BinanceFutureRestAPI:
         success, error = await self.request("GET", uri, params=params, auth=True)
         return success, error
 
-    async def get_open_orders(self, symbol):
+    async def get_open_orders(self, symbol=""):
         """ Get all open order information.
         Args:
             symbol: Symbol name, e.g. BTCUSDT.
@@ -398,6 +398,8 @@ class BinanceFutureTrade:
             e = Error("param strategy miss")
         if not kwargs.get("symbol"):
             e = Error("param symbol miss")
+        if not kwargs.get("symbols"):
+            kwargs.setdefault("symbols", [kwargs.get('symbol')])
         if not kwargs.get("host"):
             kwargs["host"] = "https://fapi.binance.com"
         if not kwargs.get("wss"):
@@ -416,6 +418,7 @@ class BinanceFutureTrade:
         self._strategy = kwargs["strategy"]
         self._platform = BINANCE_FUTURE
         self._symbol = kwargs["symbol"]
+        self._symbols = kwargs["symbols"]
         self._host = kwargs["host"]
         self._wss = kwargs["wss"]
         self._access_key = kwargs["access_key"]
@@ -424,6 +427,8 @@ class BinanceFutureTrade:
         self._order_update_callback = kwargs.get("order_update_callback")
         self._position_update_callback = kwargs.get("position_update_callback")
         self._init_success_callback = kwargs.get("init_success_callback")
+        
+        self._symbol_infos = {}
 
         self._ok = False  # Initialize successfully ?
 
@@ -433,9 +438,16 @@ class BinanceFutureTrade:
         self._assets = {}  # Asset data. e.g. {"BTC": {"free": "1.1", "locked": "2.2", "total": "3.3"}, ... }
         self._orders = {}  # Order data. e.g. {order_no: order, ... }
         self._position = Position(self._platform, self._account, self._strategy, self._symbol)  # 仓位
+        
+        self._positions = {}
+        for symbol in self._symbols:
+            self._positions[symbol] = Position(self._platform, self._account, self._strategy, symbol) 
 
         # Initialize our REST API client.
         self._rest_api = BinanceFutureRestAPI(self._host, self._access_key, self._secret_key)
+
+        # fetch exchange info
+        SingleTask.run(self._init_exchange_info)
 
         # Subscribe our AssetEvent.
         if self._asset_update_callback:
@@ -458,12 +470,30 @@ class BinanceFutureTrade:
         return copy.copy(self._assets)
 
     @property
+    def positions(self):
+        return copy.copy(self._positions)
+
+    @property
     def orders(self):
         return copy.copy(self._orders)
 
     @property
     def rest_api(self):
         return self._rest_api
+
+    async def _init_exchange_info(self):
+        result = await self._rest_api.exchange_information()
+        for symbol_rule in result[0]['symbols']:
+            symbol = symbol_rule['symbol']
+            self._symbol_infos[symbol] = {
+                'price_precision': symbol_rule['pricePrecision'],
+                'quantity_precision': symbol_rule['quantityPrecision']
+            }
+            for filter in symbol_rule['filters']:
+                if filter['filterType'] == 'LOT_SIZE':
+                    self._symbol_infos[symbol]['quantity_step'] = float(filter['stepSize'])
+                if filter['filterType'] == 'PRICE_FILTER':
+                    self._symbol_infos[symbol]['price_step'] = float(filter['tickSize'])
 
     async def _init_websocket(self):
         """ Initialize Websocket connection.
@@ -499,7 +529,7 @@ class BinanceFutureTrade:
         """ After websocket connection created successfully, pull back all open order information.
         """
         logger.info("Websocket connection authorized successfully.", caller=self)
-        order_infos, error = await self._rest_api.get_open_orders(self._raw_symbol)
+        order_infos, error = await self._rest_api.get_open_orders()
         if error:
             e = Error("get open orders error: {}".format(error))
             SingleTask.run(self._init_success_callback, False, e)
@@ -529,7 +559,7 @@ class BinanceFutureTrade:
                 "order_no": order_no,
                 "action": order_info["side"],
                 "order_type": order_info["type"],
-                "symbol": self._symbol,
+                "symbol": order_info['symbol'],
                 "price": order_info["price"],
                 "quantity": order_info["origQty"],
                 "remain": float(order_info["origQty"]) - float(order_info["executedQty"]),
@@ -545,7 +575,7 @@ class BinanceFutureTrade:
         self._ok = True
         SingleTask.run(self._init_success_callback, True, None)
 
-    async def create_order(self, action, price, quantity, *args, **kwargs):
+    async def create_order(self, action, price, quantity,type=ORDER_TYPE_LIMIT,symbol=None,*args, **kwargs):
         """ Create an order.
 
         Args:
@@ -567,17 +597,20 @@ class BinanceFutureTrade:
                 trade_type = TRADE_TYPE_BUY_CLOSE
             else:
                 trade_type = TRADE_TYPE_SELL_OPEN
+
+        if symbol is None:
+            symbol = self._raw_symbol
         quantity = abs(float(quantity))
-        price = tools.float_to_str(price)
-        quantity = tools.float_to_str(quantity)
+        price = tools.float_to_str(tools.to_float(price, self._symbol_infos[symbol]['price_step'],self._symbol_infos[symbol]['price_precision']))
+        quantity = tools.float_to_str(tools.to_float(quantity, self._symbol_infos[symbol]['quantity_step'],self._symbol_infos[symbol]['quantity_precision']))
         client_order_id = tools.get_uuid1().replace("-", "")[:21] + str(trade_type)
-        result, error = await self._rest_api.create_order(action, self._raw_symbol, price, quantity, client_order_id)
+        result, error = await self._rest_api.create_order(action, symbol, price, quantity, type, client_order_id)
         if error:
             return None, error
         order_no = "{}_{}".format(result["orderId"], result["clientOrderId"])
         return order_no, None
 
-    async def revoke_order(self, *order_nos):
+    async def revoke_order(self, order_nos=[],symbol=None):
         """ Revoke (an) order(s).
 
         Args:
@@ -588,13 +621,15 @@ class BinanceFutureTrade:
         Returns:
             Success or error, see bellow.
         """
+        if symbol is None:
+            symbol = self._raw_symbol
         # If len(order_nos) == 0, you will cancel all orders for this symbol(initialized in Trade object).
         if len(order_nos) == 0:
-            order_infos, error = await self._rest_api.get_open_orders(self._raw_symbol)
+            order_infos, error = await self._rest_api.get_open_orders(symbol)
             if error:
                 return False, error
             for order_info in order_infos:
-                _, error = await self._rest_api.revoke_order(self._raw_symbol, order_info["orderId"],
+                _, error = await self._rest_api.revoke_order(symbol, order_info["orderId"],
                                                              order_info["clientOrderId"])
                 if error:
                     return False, error
@@ -603,7 +638,7 @@ class BinanceFutureTrade:
         # If len(order_nos) == 1, you will cancel an order.
         if len(order_nos) == 1:
             order_id, client_order_id = order_nos[0].split("_")
-            success, error = await self._rest_api.revoke_order(self._raw_symbol, order_id, client_order_id)
+            success, error = await self._rest_api.revoke_order(symbol, order_id, client_order_id)
             if error:
                 return order_nos[0], error
             else:
@@ -614,17 +649,17 @@ class BinanceFutureTrade:
             success, error = [], []
             for order_no in order_nos:
                 order_id, client_order_id = order_no.split("_")
-                _, e = await self._rest_api.revoke_order(self._raw_symbol, order_id, client_order_id)
+                _, e = await self._rest_api.revoke_order(symbol, order_id, client_order_id)
                 if e:
                     error.append((order_no, e))
                 else:
                     success.append(order_no)
             return success, error
 
-    async def get_open_order_nos(self):
+    async def get_open_order_nos(self,symbol=""):
         """ Get open order no list.
         """
-        success, error = await self._rest_api.get_open_orders(self._raw_symbol)
+        success, error = await self._rest_api.get_open_orders(symbol)
         if error:
             return None, error
         order_nos = []
@@ -654,31 +689,30 @@ class BinanceFutureTrade:
         if error:
             return
 
-        position_info = None
-        for item in success:
-            if item["symbol"] == self._raw_symbol:
-                position_info = item
-                break
-
-        if not self._position.utime:  # Callback position info when initialized.
-            update = True
-            self._position.update()
-        size = float(position_info["positionAmt"])
-        average_price = float(position_info["entryPrice"])
-        if size > 0:
-            if self._position.long_quantity != size:
+        for position_info in success:
+            if position_info["symbol"] not in self._symbols:
+                continue
+            symbol = position_info["symbol"]
+            if not self._positions[symbol].utime:  # Callback position info when initialized.
                 update = True
-                self._position.update(0, 0, size, average_price, 0)
-        elif size < 0:
-            if self._position.short_quantity != abs(size):
-                update = True
-                self._position.update(abs(size), average_price, 0, 0, 0)
-        elif size == 0:
-            if self._position.long_quantity != 0 or self._position.short_quantity != 0:
-                update = True
-                self._position.update()
-        if update:
-            await self._position_update_callback(copy.copy(self._position))
+                self._positions[symbol].update()
+            size = float(position_info["positionAmt"])
+            average_price = float(position_info["entryPrice"])
+            liquidation_price = float(position_info["liquidationPrice"])
+            if size > 0:
+                if self._positions[symbol].long_quantity != size:
+                    update = True
+                    self._positions[symbol].update(0, 0, size, average_price, liquidation_price)
+            elif size < 0:
+                if self._positions[symbol].short_quantity != abs(size):
+                    update = True
+                    self._positions[symbol].update(abs(size), average_price, 0, 0, liquidation_price)
+            elif size == 0:
+                if self._positions[symbol].long_quantity != 0 or self._positions[symbol].short_quantity != 0:
+                    update = True
+                    self._positions[symbol].update()
+            if update:
+                await self._position_update_callback(copy.copy(self._positions[symbol]))
 
     def _update_order(self, order_info):
         """ Order update.
@@ -689,8 +723,9 @@ class BinanceFutureTrade:
         Returns:
             Return order object if or None.
         """
-        if order_info["s"] != self._raw_symbol:
+        if order_info["s"] not in self._symbols:
             return
+
         order_no = "{}_{}".format(order_info["i"], order_info["c"])
 
         if order_info["X"] == "NEW":
@@ -716,7 +751,7 @@ class BinanceFutureTrade:
                 "order_no": order_no,
                 "action": order_info["S"],
                 "order_type": order_info["o"],
-                "symbol": self._symbol,
+                "symbol": order_info["s"],
                 "price": order_info["p"],
                 "quantity": order_info["q"],
                 "ctime": order_info["T"]

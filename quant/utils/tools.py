@@ -8,6 +8,7 @@ Date:   2018/04/28
 Update: 2018/09/07 1. 增加函数datetime_to_timestamp;
 """
 
+from math import floor
 import uuid
 import time
 import decimal
@@ -187,3 +188,9 @@ def float_to_str(f, p=20):
     ctx = decimal.Context(p)
     d1 = ctx.create_decimal(repr(f))
     return format(d1, 'f')
+
+def to_float(value,step,precision):
+    return round(
+        floor(value/step)*step,
+        precision
+    )

@@ -54,6 +54,7 @@ class Trade:
         kwargs["strategy"] = strategy
         kwargs["platform"] = platform
         kwargs["symbol"] = symbol
+        kwargs["symbols"] = kwargs.get("symbols", [symbol])
         kwargs["host"] = host
         kwargs["wss"] = wss
         kwargs["account"] = account
@@ -119,14 +120,14 @@ class Trade:
         return self._t.orders
 
     @property
-    def position(self):
-        return self._t.position
+    def positions(self):
+        return self._t._positions
 
     @property
     def rest_api(self):
         return self._t.rest_api
 
-    async def create_order(self, action, price, quantity, order_type=ORDER_TYPE_LIMIT, *args, **kwargs):
+    async def create_order(self, action, price, quantity, order_type=ORDER_TYPE_LIMIT, symbol=None,*args, **kwargs):
         """ Create an order.
 
         Args:
@@ -141,10 +142,10 @@ class Trade:
         """
         if not kwargs.get("client_order_id"):
             kwargs["client_order_id"] = tools.get_uuid1().replace("-", "")
-        order_no, error = await self._t.create_order(action, price, quantity, order_type, **kwargs)
+        order_no, error = await self._t.create_order(action, price, quantity, order_type,symbol=symbol,**kwargs)
         return order_no, error
 
-    async def revoke_order(self, *order_nos):
+    async def revoke_order(self, order_nos=[],symbol=None):
         """ Revoke (an) order(s).
 
         Args:
@@ -156,10 +157,10 @@ class Trade:
             success: If execute successfully, return success information, otherwise it's None.
             error: If execute failed, return error information, otherwise it's None.
         """
-        success, error = await self._t.revoke_order(*order_nos)
+        success, error = await self._t.revoke_order(order_nos,symbol)
         return success, error
 
-    async def get_open_order_nos(self):
+    async def get_open_order_nos(self,symbol=""):
         """ Get open order id list.
 
         Args:
@@ -169,7 +170,7 @@ class Trade:
             order_nos: Open order id list, otherwise it's None.
             error: Error information, otherwise it's None.
         """
-        result, error = await self._t.get_open_order_nos()
+        result, error = await self._t.get_open_order_nos(symbol)
         return result, error
 
     async def _on_order_update_callback(self, order: Order):
