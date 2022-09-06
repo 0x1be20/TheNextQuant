@@ -724,10 +724,10 @@ class BinanceFutureTrade:
             order = Order(**info)
             self._orders[order_no] = order
         order.remain = float(order_info["q"]) - float(order_info["z"])
-        order.avg_price = order_info["L"]
+        order.avg_price = order_info["ap"]
         order.status = status
         order.utime = order_info["T"]
-        order.trade_type = int(order_no[-1])
+        order.trade_type =  order_info["S"] #int(order_no[-1])
         SingleTask.run(self._order_update_callback, copy.copy(order))
 
     async def on_event_asset_update(self, asset: Asset):

@@ -371,7 +371,7 @@ class EventCenter:
         logger.info("Rabbitmq initialize success!", caller=self)
 
         # Create default exchanges.
-        exchanges = ["Orderbook", "Trade", "Kline", "Kline.5min", "Kline.15min", ]
+        exchanges = ["Orderbook", "Trade", "Kline", "Kline.5min", "Kline.15min","Asset"]
         for name in exchanges:
             await self._channel.exchange_declare(exchange_name=name, type_name="topic")
         logger.debug("create default exchanges success!", caller=self)

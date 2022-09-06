@@ -22,13 +22,14 @@ class Asset:
         update: If any update? True or False.
     """
 
-    def __init__(self, platform=None, account=None, assets=None, timestamp=None, update=False):
+    def __init__(self, platform=None, account=None, assets=None, timestamp=None, update=False,_eventtime=None):
         """ Initialize. """
         self.platform = platform
         self.account = account
         self.assets = assets
         self.timestamp = timestamp
         self.update = update
+        self._eventtime = _eventtime
 
     @property
     def data(self):
@@ -37,7 +38,8 @@ class Asset:
             "account": self.account,
             "assets": self.assets,
             "timestamp": self.timestamp,
-            "update": self.update
+            "update": self.update,
+            "_eventtime":self._eventtime
         }
         return d
 
