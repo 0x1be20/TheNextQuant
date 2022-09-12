@@ -758,6 +758,9 @@ class BinanceFutureTrade:
             }
             order = Order(**info)
             self._orders[order_no] = order
+        order.fee = float(order_info.get('n',0))
+        order.is_maker = 1 if order_info['m'] else 0
+        order.profit = float(order_info['rp'])
         order.remain = float(order_info["q"]) - float(order_info["z"])
         order.avg_price = order_info["ap"]
         order.status = status

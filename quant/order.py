@@ -54,11 +54,14 @@ class Order:
         trade_type: Trade type, only for future order.
         ctime: Order create time, millisecond.
         utime: Order update time, millisecond.
+        fee: Order fee.
+        is_maker: trade as maker or taker.
+        profit: order profit.
     """
 
     def __init__(self, account=None, platform=None, strategy=None, order_no=None, client_order_id=None, symbol=None,
                  action=None, price=0, quantity=0, remain=0, status=ORDER_STATUS_NONE, avg_price=0,
-                 order_type=ORDER_TYPE_LIMIT, trade_type=TRADE_TYPE_NONE, ctime=None, utime=None):
+                 order_type=ORDER_TYPE_LIMIT, trade_type=TRADE_TYPE_NONE, ctime=None, utime=None,fee=None,profit=None,is_maker=None):
         self.platform = platform
         self.account = account
         self.strategy = strategy
@@ -75,17 +78,21 @@ class Order:
         self.trade_type = trade_type
         self.ctime = ctime if ctime else tools.get_cur_timestamp_ms()
         self.utime = utime if utime else tools.get_cur_timestamp_ms()
+        self.fee = fee 
+        self.is_maker = 1 if is_maker else 0
+        self.profit = profit
 
     def __str__(self):
         info = "[platform: {platform}, account: {account}, strategy: {strategy}, order_no: {order_no}, " \
                "client_order_id: {client_order_id}, action: {action}, symbol: {symbol}, price: {price}, " \
                "quantity: {quantity}, remain: {remain}, status: {status}, avg_price: {avg_price}, " \
                "order_type: {order_type}, trade_type: {trade_type}, " \
-               "ctime: {ctime}, utime: {utime}]".format(
+               "ctime: {ctime}, utime: {utime}, fee: {fee}, is_maker: {is_maker}, profit: {profit}]".format(
             platform=self.platform, account=self.account, strategy=self.strategy, order_no=self.order_no,
             client_order_id=self.client_order_id, action=self.action, symbol=self.symbol, price=self.price,
             quantity=self.quantity, remain=self.remain, status=self.status, avg_price=self.avg_price,
-            order_type=self.order_type, trade_type=self.trade_type, ctime=self.ctime, utime=self.utime)
+            order_type=self.order_type, trade_type=self.trade_type, ctime=self.ctime, utime=self.utime,
+            fee=self.fee,is_maker=self.is_maker,profit=self.profit)
         return info
 
     def __repr__(self):
