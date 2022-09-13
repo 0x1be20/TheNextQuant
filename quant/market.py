@@ -110,10 +110,12 @@ class Kline:
         volume: Total trade volume.
         timestamp: Update time, millisecond.
         kline_type: Kline type name, kline - 1min, kline_5min - 5min, kline_15min - 15min.
+        start_t: kline start time,millisecond
+        end_t: kline end time,millisecond
     """
 
     def __init__(self, platform=None, symbol=None, open=None, high=None, low=None, close=None, volume=None,
-                 timestamp=None, kline_type=None, _eventtime=None):
+                 timestamp=None, kline_type=None, _eventtime=None,start_t=None,end_t=None):
         """ Initialize. """
         self.platform = platform
         self.symbol = symbol
@@ -125,6 +127,8 @@ class Kline:
         self.timestamp = timestamp
         self.kline_type = kline_type
         self._eventtime = _eventtime
+        self.start_t = start_t
+        self.end_t = end_t
 
     @property
     def data(self):

@@ -181,12 +181,13 @@ class BinanceFutureRestAPI:
             "symbol": symbol,
             "side": action,
             "type": type,
-            "timeInForce": "GTC",
             "quantity": quantity,
-            "price": price,
             "recvWindow": "5000",
             "timestamp": tools.get_cur_timestamp_ms()
         }
+        if type==ORDER_TYPE_LIMIT:
+            data["timeInForce"] = "GTC"
+            data["price"] = price
         if client_order_id:
             data["newClientOrderId"] = client_order_id
         success, error = await self.request("POST", uri, body=data, auth=True)
@@ -446,8 +447,7 @@ class BinanceFutureTrade:
         # Initialize our REST API client.
         self._rest_api = BinanceFutureRestAPI(self._host, self._access_key, self._secret_key)
 
-        # fetch exchange info
-        SingleTask.run(self._init_exchange_info)
+        
 
         # Subscribe our AssetEvent.
         if self._asset_update_callback:
@@ -529,6 +529,10 @@ class BinanceFutureTrade:
         """ After websocket connection created successfully, pull back all open order information.
         """
         logger.info("Websocket connection authorized successfully.", caller=self)
+        
+        # fetch exchange info
+        await self._init_exchange_info()
+
         order_infos, error = await self._rest_api.get_open_orders()
         if error:
             e = Error("get open orders error: {}".format(error))
@@ -564,9 +568,10 @@ class BinanceFutureTrade:
                 "quantity": order_info["origQty"],
                 "remain": float(order_info["origQty"]) - float(order_info["executedQty"]),
                 "status": status,
-                "trade_type": int(order_info["clientOrderId"][-1]),
+                "trade_type": order_info['positionSide'],
                 "ctime": order_info["updateTime"],
-                "utime": order_info["updateTime"]
+                "utime": order_info["updateTime"],
+                "client_order_id": order_info["clientOrderId"],
             }
             order = Order(**info)
             self._orders[order_no] = order
@@ -575,7 +580,7 @@ class BinanceFutureTrade:
         self._ok = True
         SingleTask.run(self._init_success_callback, True, None)
 
-    async def create_order(self, action, price, quantity,type=ORDER_TYPE_LIMIT,symbol=None,*args, **kwargs):
+    async def create_order(self, action, price, quantity,type=ORDER_TYPE_LIMIT,symbol=None,client_order_id=None,*args, **kwargs):
         """ Create an order.
 
         Args:
@@ -603,8 +608,8 @@ class BinanceFutureTrade:
         quantity = abs(float(quantity))
         price = tools.float_to_str(tools.to_float(price, self._symbol_infos[symbol]['price_step'],self._symbol_infos[symbol]['price_precision']))
         quantity = tools.float_to_str(tools.to_float(quantity, self._symbol_infos[symbol]['quantity_step'],self._symbol_infos[symbol]['quantity_precision']))
-        client_order_id = tools.get_uuid1().replace("-", "")[:21] + str(trade_type)
-        result, error = await self._rest_api.create_order(action, symbol, price, quantity, type, client_order_id)
+        cust_client_order_id = (client_order_id if client_order_id else tools.get_uuid1().replace("-", "")[:21])+ str(trade_type)
+        result, error = await self._rest_api.create_order(action, symbol, price, quantity, type, cust_client_order_id)
         if error:
             return None, error
         order_no = "{}_{}".format(result["orderId"], result["clientOrderId"])
@@ -765,6 +770,7 @@ class BinanceFutureTrade:
         order.avg_price = order_info["ap"]
         order.status = status
         order.utime = order_info["T"]
+        order.client_order_id = order_info.get('c')
         order.trade_type =  order_info["S"] #int(order_no[-1])
         SingleTask.run(self._order_update_callback, copy.copy(order))
 
