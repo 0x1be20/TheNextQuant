@@ -608,7 +608,7 @@ class BinanceFutureTrade:
         quantity = abs(float(quantity))
         price = tools.float_to_str(tools.to_float(price, self._symbol_infos[symbol]['price_step'],self._symbol_infos[symbol]['price_precision']))
         quantity = tools.float_to_str(tools.to_float(quantity, self._symbol_infos[symbol]['quantity_step'],self._symbol_infos[symbol]['quantity_precision']))
-        cust_client_order_id = (client_order_id if client_order_id else tools.get_uuid1().replace("-", "")[:21])+ str(trade_type)
+        cust_client_order_id = client_order_id if client_order_id else tools.get_uuid1().replace("-", "")[:21]
         result, error = await self._rest_api.create_order(action, symbol, price, quantity, type, cust_client_order_id)
         if error:
             return None, error
