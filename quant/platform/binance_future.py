@@ -517,8 +517,24 @@ class BinanceFutureTrade:
         if not self._listen_key:
             logger.error("listen key not initialized!", caller=self)
             return
-        await self._rest_api.put_listen_key(self._listen_key)
-        logger.info("reset listen key success!", caller=self)
+        success,error = await self._rest_api.put_listen_key(self._listen_key)
+        if error:
+            logger.info("reset listen failed:{}",error)
+        else:
+            logger.info("reset listen key success!,success:{}",success, caller=self)
+
+    async def _reconnect(self,*args,**kargs):
+        success, error = await self._rest_api.get_listen_key()
+        if error:
+            e = Error("get listen key failed: {}".format(error))
+            logger.error(e, caller=self)
+            SingleTask.call_later(self._reconnect,10)
+            return
+        self._listen_key = success["listenKey"]
+        uri = "/ws/" + self._listen_key
+        url = urljoin(self._wss, uri)
+        self._ws = Websocket(url, lambda *args:logger.info("websocket reconnect ok!"), process_callback=self.process)
+        self._ws.initialize()
 
     # async def _send_heartbeat_msg(self, *args, **kwargs):
     #     """Send ping to server."""
@@ -684,6 +700,11 @@ class BinanceFutureTrade:
         e = msg.get("e")
         if e == "ORDER_TRADE_UPDATE":  # Order update.
             self._update_order(msg["o"])
+        elif e == "listenKeyExpired":
+            logger.info("listenKey Expired")
+            SingleTask.run(self._reconnect)
+        else:
+            logger.info("unknown event {}",json.dumps(msg))
 
     async def _check_position_update(self, *args, **kwargs):
         """Check position update."""
