@@ -13,6 +13,7 @@ import json
 import copy
 import hmac
 import hashlib
+from random import random
 from urllib.parse import urljoin
 
 from quant.error import Error
@@ -506,7 +507,7 @@ class BinanceFutureTrade:
             SingleTask.run(self._init_success_callback, False, e)
             return
         self._listen_key = success["listenKey"]
-        uri = "/ws/" + self._listen_key
+        uri = "/ws/" #+ self._listen_key
         url = urljoin(self._wss, uri)
         self._ws = Websocket(url, self.connected_callback, process_callback=self.process)
         self._ws.initialize()
@@ -517,24 +518,17 @@ class BinanceFutureTrade:
         if not self._listen_key:
             logger.error("listen key not initialized!", caller=self)
             return
-        success,error = await self._rest_api.put_listen_key(self._listen_key)
+        success,error = await self._rest_api.get_listen_key(self._listen_key)
         if error:
-            logger.info("reset listen failed:{}",error)
+            logger.info("get listen failed:{}",error)
         else:
-            logger.info("reset listen key success!,success:{}",success, caller=self)
-
-    async def _reconnect(self,*args,**kargs):
-        success, error = await self._rest_api.get_listen_key()
-        if error:
-            e = Error("get listen key failed: {}".format(error))
-            logger.error(e, caller=self)
-            SingleTask.call_later(self._reconnect,10)
-            return
-        self._listen_key = success["listenKey"]
-        uri = "/ws/" + self._listen_key
-        url = urljoin(self._wss, uri)
-        self._ws = Websocket(url, lambda *args:logger.info("websocket reconnect ok!"), process_callback=self.process)
-        self._ws.initialize()
+            self._listen_key = success["listenKey"]
+            await self._ws.send(json.dumps({
+                "method":"SUBSCRIBE",
+                "params":[self._listen_key],
+                "id":int(random()*10000)
+            }))
+            logger.info("reset listen key success!,success:{}",success["listenKey"], caller=self)
 
     # async def _send_heartbeat_msg(self, *args, **kwargs):
     #     """Send ping to server."""
@@ -544,6 +538,12 @@ class BinanceFutureTrade:
     async def connected_callback(self):
         """ After websocket connection created successfully, pull back all open order information.
         """
+        await self._ws.send(json.dumps({
+            "method":"SUBSCRIBE",
+            "params":[self._listen_key],
+            "id":int(random()*10000)
+        }))
+
         logger.info("Websocket connection authorized successfully.", caller=self)
         
         # fetch exchange info
