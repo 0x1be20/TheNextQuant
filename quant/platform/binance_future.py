@@ -702,7 +702,7 @@ class BinanceFutureTrade:
             self._update_order(msg["o"])
         elif e == "listenKeyExpired":
             logger.info("listenKey Expired")
-            SingleTask.run(self._reconnect)
+            SingleTask.run(self._reset_listen_key)
         else:
             logger.info("unknown event {}",json.dumps(msg))
 
