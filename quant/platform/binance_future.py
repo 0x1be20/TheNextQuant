@@ -518,7 +518,7 @@ class BinanceFutureTrade:
         if not self._listen_key:
             logger.error("listen key not initialized!", caller=self)
             return
-        success,error = await self._rest_api.get_listen_key(self._listen_key)
+        success,error = await self._rest_api.get_listen_key()
         if error:
             logger.info("get listen failed:{}",error)
         else:
