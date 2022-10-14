@@ -158,6 +158,8 @@ class Websocket:
         self._check_conn_interval = check_conn_interval
         self._ws = None  # Websocket connection object.
 
+        self._closed = False
+
     @property
     def ws(self):
         return self._ws
@@ -199,7 +201,8 @@ class Websocket:
                     SingleTask.run(self._process_binary_callback, msg.data)
             elif msg.type == aiohttp.WSMsgType.CLOSED:
                 logger.warn("receive event CLOSED:", msg, caller=self)
-                SingleTask.run(self._reconnect)
+                if not self._closed:
+                    SingleTask.run(self._reconnect)
             elif msg.type == aiohttp.WSMsgType.ERROR:
                 logger.error("receive event ERROR:", msg, caller=self)
             else:
@@ -210,7 +213,7 @@ class Websocket:
         if not self.ws:
             logger.warn("Websocket connection not connected yet!", caller=self)
             return
-        if self.ws.closed:
+        if self.ws.closed and not self._closed:
             SingleTask.run(self._reconnect)
 
     async def send(self, data):
@@ -234,6 +237,16 @@ class Websocket:
             return False
         logger.debug("send message:", data, caller=self)
         return True
+
+    def close(self):
+        self._closed = True
+        SingleTask.call_later(self._real_close_socket,5)
+
+    async def _real_close_socket(self):
+        try:
+            await self._ws.close()
+        except Exception as e:
+            logger.warn("Websocket close error:",e,caller=self)
 
 
 class AsyncHttpRequests(object):
