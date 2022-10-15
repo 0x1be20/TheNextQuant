@@ -429,6 +429,40 @@ class EventCenter:
             self._event_handler[key] = [callback]
         logger.debug("event handlers:", self._event_handler.keys(), caller=self)
 
+
+    @async_method_locker("EventCenter.add_event_handler")
+    async def add_event_handler(self,event:Event,callback,multi=False):
+        await self.subscribe(event,callback,multi)
+        await self._initialize(event, callback, multi)
+
+    @async_method_locker("EventCenter.remove_event_handler")
+    async def remove_event_handler(self,event:Event,callback):
+        key = "{exchange}:{routing_key}".format(exchange=event.exchange, routing_key=event.routing_key)
+        logger.info("remove event handler start")
+        if key in self._event_handler:
+            for cb in self._event_handler[key]:
+                if cb == callback:
+                    self._event_handler[key].remove(cb)
+                    logger.info("removed event handler")
+                    if len(self._event_handler[key])==0:
+                        logger.info("queue unbind",event.queue,event.exchange,event.routing_key)
+                        await self._channel.queue_unbind(event.queue,event.exchange,event.routing_key)
+                    break 
+        for _s in self._subscribers:
+            _e,cb,multi = _s 
+            if _e.name == event.name and \
+                _e.exchange==event.exchange and \
+                _e.queue==event.queue and \
+                event.routing_key == _e.routing_key and \
+                cb==callback:
+                self._subscribers.remove(_s)
+                logger.info("removed subscribers")
+                break 
+        
+                
+
+
+
     async def _check_connection(self, *args, **kwargs):
         if self._connected and self._channel and self._channel.is_open:
             logger.debug("RabbitMQ connection ok.", caller=self)
